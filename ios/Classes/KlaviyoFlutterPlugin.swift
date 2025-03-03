@@ -3,8 +3,9 @@ import Flutter
 import KlaviyoSwift
 
 /// A class that receives and handles calls from Flutter to complete the payment.
-public class KlaviyoFlutterPlugin: NSObject, FlutterPlugin, UNUserNotificationCenterDelegate {
+public class KlaviyoFlutterPlugin: NSObject, FlutterPlugin, UNUserNotificationCenterDelegate, FlutterStreamHandler {
   private static let methodChannelName = "com.rightbite.denisr/klaviyo"
+  private static let eventChannelName = "com.rightbite.denisr/klaviyo_push_stream"
     
   private let METHOD_UPDATE_PROFILE = "updateProfile"
   private let METHOD_INITIALIZE = "initialize"
@@ -20,11 +21,16 @@ public class KlaviyoFlutterPlugin: NSObject, FlutterPlugin, UNUserNotificationCe
   private let METHOD_GET_PHONE_NUMBER = "getPhoneNumber"
 
   private let klaviyo = KlaviyoSDK()
+  private var eventSink: FlutterEventSink?
 
   public static func register(with registrar: FlutterPluginRegistrar) {
     let messenger = registrar.messenger()
     let channel = FlutterMethodChannel(name: methodChannelName, binaryMessenger: messenger)
     let instance = KlaviyoFlutterPlugin()
+
+    // Setup event channel for push notification stream
+    let eventChannel = FlutterEventChannel(name: eventChannelName, binaryMessenger: messenger)
+    eventChannel.setStreamHandler(instance)
 
     if #available(OSX 10.14, *) {
         let center = UNUserNotificationCenter.current()
@@ -43,23 +49,50 @@ public class KlaviyoFlutterPlugin: NSObject, FlutterPlugin, UNUserNotificationCe
         UIApplication.shared.applicationIconBadgeNumber -= 1
     }
 
+    // Extract notification data
+    let userInfo = response.notification.request.content.userInfo
+    
+    // Stream the notification data to Flutter before handling it
+    if let eventSink = self.eventSink {
+        // Convert userInfo to a JSON string
+        if let jsonData = try? JSONSerialization.data(withJSONObject: userInfo),
+           let jsonString = String(data: jsonData, encoding: .utf8) {
+            eventSink(jsonString)
+        }
+    }
+    
     // If this notification is Klaviyo's notification we'll handle it
     // else pass it on to the next push notification service to which it may belong
-    let handled = KlaviyoSDK().handle(notificationResponse: response, withCompletionHandler: completionHandler)
-    if !handled {
-        completionHandler()
-    }
+    // let handled = KlaviyoSDK().handle(notificationResponse: response, withCompletionHandler: completionHandler)
+    // if !handled {
+    //     completionHandler()
+    // }
+    completionHandler()
   }
 
   // below method is called when the app receives push notifications when the app is the foreground
   public func userNotificationCenter(_ center: UNUserNotificationCenter,
                                   willPresent notification: UNNotification,
                                   withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+     // Extract notification data
+     let userInfo = notification.request.content.userInfo
+     
+     // Stream the notification data to Flutter before handling it
+     if let eventSink = self.eventSink {
+         // Convert userInfo to a JSON string
+         if let jsonData = try? JSONSerialization.data(withJSONObject: userInfo),
+            let jsonString = String(data: jsonData, encoding: .utf8) {
+             eventSink(jsonString)
+         }
+     }
+     
      var options: UNNotificationPresentationOptions =  [.alert]
      if #available(iOS 14.0, *) {
        options = [.list, .banner]
      }
-     completionHandler(options)
+
+     // disable banners
+     completionHandler([])
   }
 
   public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
@@ -157,6 +190,18 @@ public class KlaviyoFlutterPlugin: NSObject, FlutterPlugin, UNUserNotificationCe
         default:
           result(FlutterMethodNotImplemented)
     }
+  }
+
+  // MARK: - FlutterStreamHandler
+  
+  public func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {
+    self.eventSink = events
+    return nil
+  }
+  
+  public func onCancel(withArguments arguments: Any?) -> FlutterError? {
+    self.eventSink = nil
+    return nil
   }
 }
 
