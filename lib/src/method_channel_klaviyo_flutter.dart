@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:developer';
 
 import 'package:flutter/services.dart';
@@ -6,6 +7,8 @@ import 'klaviyo_flutter_platform_interface.dart';
 import 'klaviyo_profile.dart';
 
 const MethodChannel _channel = MethodChannel('com.rightbite.denisr/klaviyo');
+const EventChannel _pushEventChannel =
+    EventChannel('com.rightbite.denisr/klaviyo_push_stream');
 
 /// An implementation of [KlaviyoFlutterPlatform] that uses method channels.
 class MethodChannelKlaviyoFlutter extends KlaviyoFlutterPlatform {
@@ -71,4 +74,19 @@ class MethodChannelKlaviyoFlutter extends KlaviyoFlutterPlatform {
       _channel.invokeMethod('setPhoneNumber', {'phoneNumber': phoneNumber});
 
   Future<String?> getPhoneNumber() => _channel.invokeMethod('getPhoneNumber');
+
+  @override
+  Stream<Map<String, dynamic>> getPushNotificationStream() {
+    return _pushEventChannel.receiveBroadcastStream().map((dynamic event) {
+      try {
+        if (event is String) {
+          final Map<String, dynamic> decoded = jsonDecode(event);
+          return decoded;
+        }
+      } catch (e) {
+        log('Error parsing push notification data: $e');
+      }
+      return <String, dynamic>{};
+    });
+  }
 }

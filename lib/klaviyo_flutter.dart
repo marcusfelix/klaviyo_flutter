@@ -118,4 +118,20 @@ class Klaviyo {
   /// @return The phone number of the currently tracked profile, if set
   Future<String?> getPhoneNumber() =>
       KlaviyoFlutterPlatform.instance.getPhoneNumber();
+
+  /// Returns a stream of push notification data that is received before being handled by Klaviyo
+  ///
+  /// This stream will emit push notification data as soon as it's received by the device,
+  /// before it's processed by the Klaviyo SDK. This allows you to perform custom actions
+  /// with the push notification data.
+  ///
+  /// Example usage:
+  /// ```dart
+  /// Klaviyo.instance.pushNotificationStream.listen((data) {
+  ///   print('Received push notification: $data');
+  ///   // Perform custom actions with the push notification data
+  /// });
+  /// ```
+  Stream<Map<String, dynamic>> get pushNotificationStream =>
+      KlaviyoFlutterPlatform.instance.getPushNotificationStream();
 }

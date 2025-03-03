@@ -135,4 +135,10 @@ abstract class KlaviyoFlutterPlatform extends PlatformInterface {
   Future<String?> getPhoneNumber() async {
     throw UnimplementedError('getPhoneNumber() has not been implemented.');
   }
+
+  /// Returns a stream of push notification data that is received before being handled by Klaviyo
+  Stream<Map<String, dynamic>> getPushNotificationStream() {
+    throw UnimplementedError(
+        'getPushNotificationStream() has not been implemented.');
+  }
 }
